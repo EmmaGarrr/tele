@@ -25,23 +25,23 @@
         <div *ngIf="!isLoading && !error" class="file-list-scroll user-history-list-scroll"> <!-- Reusing class name -->
             @if (archivedFiles.length > 0) {
             <ul class="file-list"> <!-- Reusing class name -->
-                @for(file of archivedFiles; track file.access_id || (getDisplayFilename(file) +
-                file.archived_timestamp))
+                @for(file of archivedFiles; track file['access_id'] || (getDisplayFilename(file) +
+                file['archived_timestamp']))
                 {
                 <li class="file-list-item"> <!-- Reusing class name -->
                     <div class="item-icon"><i [ngClass]="getFileIcon(file)"></i></div>
                     <div class="item-details">
                         <span class="item-name" [title]="getDisplayFilename(file)">{{ getDisplayFilename(file) }}</span>
                         <!-- Display archived_timestamp -->
-                        <span class="item-upload-date-history">Archived: {{ formatArchivedDate(file.archived_timestamp)
+                        <span class="item-upload-date-history">Archived: {{ formatArchivedDate(file['archived_timestamp'])
                             }}</span>
                     </div>
                     <div class="item-size">{{ getItemSize(file) | byteFormat }}</div>
                     <div class="item-actions">
                         <!-- Restore Button -->
                         <button class="btn icon-btn btn-success" title="Restore Item" (click)="requestFileRestore(file)"
-                            [disabled]="!file.access_id || restoringStates[file.access_id!]">
-                            @if (restoringStates[file.access_id!]) {
+                            [disabled]="!file['access_id'] || restoringStates[file['access_id']]">
+                            @if (restoringStates[file['access_id']]) {
                             <i class="fas fa-spinner fa-spin"></i>
                             } @else {
                             <i class="fas fa-undo"></i> <!-- Restore icon -->
@@ -51,7 +51,7 @@
                         <!--
                         <button class="btn icon-btn btn-download-item" title="Download Item"
                                 (click)="requestFileDownload(file)"
-                                [disabled]="!file.access_id">
+                                [disabled]="!file['access_id']">
                             <i class="fas fa-download"></i>
                         </button>
                         -->

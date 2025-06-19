@@ -27,20 +27,20 @@
         <div *ngIf="!isLoadingFiles && !fileListError" class="file-list-scroll user-history-list-scroll">
             @if (displayedFiles.length > 0) {
             <ul class="file-list">
-                @for(file of displayedFiles; track file.access_id || (getDisplayFilename(file) + file.upload_timestamp))
+                @for(file of displayedFiles; track file['access_id'] || (getDisplayFilename(file) + file['upload_timestamp']))
                 {
                 <li class="file-list-item">
                     <div class="item-icon"><i [ngClass]="getFileIcon(file)"></i></div>
                     <div class="item-details">
                         <span class="item-name" [title]="getDisplayFilename(file)">{{ getDisplayFilename(file) }}</span>
-                        <span class="item-upload-date-history">{{ formatUploadDate(file.upload_timestamp) }}</span>
+                        <span class="item-upload-date-history">{{ formatUploadDate(file['upload_timestamp']) }}</span>
                     </div>
                     <div class="item-size">{{ getItemSize(file) | byteFormat }}</div>
                     <div class="item-actions">
                         <button class="btn icon-btn btn-download-item" title="Download Item"
                             (click)="requestFileDownload(file)"
-                            [disabled]="!file.access_id || downloadingStates[file.access_id!]">
-                            @if (downloadingStates[file.access_id!]) {
+                            [disabled]="!file['access_id'] || downloadingStates[file['access_id']]">
+                            @if (downloadingStates[file['access_id']]) {
                             <i class="fas fa-spinner fa-spin"></i>
                             } @else {
                             <i class="fas fa-download"></i>

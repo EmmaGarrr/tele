@@ -1,10 +1,10 @@
 // src/app/shared/component/batch-file-browser/batch-file-browser.component.ts
 
 import { Component, OnInit, OnDestroy, inject, ChangeDetectorRef, NgZone, Input, OnChanges, SimpleChanges } from '@angular/core';
-import { CommonModule, DatePipe, DecimalPipe } from '@angular/common';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { CommonModule, DatePipe } from '@angular/common';
+import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Observable, Subscription, throwError } from 'rxjs';
+import { Subscription, throwError } from 'rxjs';
 import { catchError, tap } from 'rxjs/operators';
 import { environment } from 'src/environments/environment';
 
@@ -22,10 +22,9 @@ import { ByteFormatPipe } from '../../shared/pipes/byte-format.pipe';
 @Component({
   selector: 'app-batch-file-browser',
   standalone: true,
-  imports: [CommonModule, RouterLink, ByteFormatPipe, DatePipe, DecimalPipe],
+  imports: [CommonModule, ByteFormatPipe],
   templateUrl: './batch-file-browser.component.html',
   styleUrls: ['./batch-file-browser.component.css'],
-  providers: [DatePipe, DecimalPipe]
 })
 export class BatchFileBrowserComponent implements OnInit, OnDestroy, OnChanges {
   // ... (all existing properties and methods like private route, http, etc.) ...

@@ -11,7 +11,7 @@ import { UploadEventService } from '../../services/upload-event.service';
 @Component({
   selector: 'app-user-files-page',
   standalone: true,
-  imports: [CommonModule, ByteFormatPipe, DatePipe, RouterLink],
+  imports: [CommonModule, ByteFormatPipe, RouterLink],
   templateUrl: './user-files-page.component.html',
   styleUrls: ['./user-files-page.component.css'],
   providers: [DatePipe],
@@ -62,10 +62,10 @@ export class UserFilesPageComponent implements OnInit, OnDestroy {
 
   get totalUploadedSize(): number {
     return this.displayedFiles.reduce((acc, file) => {
-      if (file.is_batch) {
-        return acc + (file.total_original_size || 0);
+      if (file['is_batch']) {
+        return acc + (file['total_original_size'] || 0);
       }
-      return acc + (file.original_size || file.size || 0);
+      return acc + (file['original_size'] || file['size'] || 0);
     }, 0);
   }
 
@@ -79,8 +79,8 @@ export class UserFilesPageComponent implements OnInit, OnDestroy {
       next: (files) => this.zone.run(() => {
         console.log('UserFilesPageComponent: Raw files from API /listFiles:', JSON.stringify(files, null, 2));
         this.displayedFiles = files.sort((a, b) => {
-          const dateA = a.upload_timestamp ? new Date(a.upload_timestamp).getTime() : 0;
-          const dateB = b.upload_timestamp ? new Date(b.upload_timestamp).getTime() : 0;
+          const dateA = a['upload_timestamp'] ? new Date(a['upload_timestamp']).getTime() : 0;
+          const dateB = b['upload_timestamp'] ? new Date(b['upload_timestamp']).getTime() : 0;
           return dateB - dateA;
         });
         this.isLoadingFiles = false;
@@ -97,33 +97,33 @@ export class UserFilesPageComponent implements OnInit, OnDestroy {
   }
 
   getDisplayFilename(file: TelegramFileMetadata): string {
-    if (file.is_batch) {
-      return file.batch_display_name || 'Unnamed Batch';
+    if (file['is_batch']) {
+      return file['batch_display_name'] || 'Unnamed Batch';
     } else {
-      if (file.files_in_batch && file.files_in_batch.length > 0 && file.files_in_batch[0].original_filename) {
-        return file.files_in_batch[0].original_filename;
+      if (file['files_in_batch'] && file['files_in_batch'].length > 0 && file['files_in_batch'][0]['original_filename']) {
+        return file['files_in_batch'][0]['original_filename'];
       }
-      return file.batch_display_name || file.original_filename || 'Unnamed File';
+      return file['batch_display_name'] || file['original_filename'] || 'Unnamed File';
     }
   }
 
   getItemSize(file: TelegramFileMetadata): number {
-    if (file.is_batch) {
-      return file.total_original_size ?? 0;
+    if (file['is_batch']) {
+      return file['total_original_size'] ?? 0;
     } else {
-      if (file.files_in_batch && file.files_in_batch.length > 0 && typeof file.files_in_batch[0].original_size !== 'undefined') {
-        return file.files_in_batch[0].original_size;
+      if (file['files_in_batch'] && file['files_in_batch'].length > 0 && typeof file['files_in_batch'][0]['original_size'] !== 'undefined') {
+        return file['files_in_batch'][0]['original_size'];
       }
-      return file.original_size ?? file.size ?? 0;
+      return file['original_size'] ?? file['size'] ?? 0;
     }
   }
 
   getFileIcon(file: TelegramFileMetadata): string {
     const filenameForIcon = this.getDisplayFilename(file);
 
-    if (file.is_batch) {
+    if (file['is_batch']) {
       // A batch of multiple files should always look like a folder/archive.
-      if (file.files_in_batch && file.files_in_batch.length > 1) {
+      if (file['files_in_batch'] && file['files_in_batch'].length > 1) {
         return 'fas fa-folder-open text-warning';
       }
       // If it's a "batch" of one file, we let the logic continue to check the extension.
@@ -163,21 +163,21 @@ export class UserFilesPageComponent implements OnInit, OnDestroy {
   }
 
   requestFileDownload(file: TelegramFileMetadata): void {
-    if (!file.access_id) {
+    if (!file['access_id']) {
       alert("Error: Download information is missing for this item.");
       this.cdRef.detectChanges();
       return;
     }
-    if (this.downloadingStates[file.access_id]) return;
+    if (this.downloadingStates[file['access_id']]) return;
 
-    this.downloadingStates[file.access_id] = true;
+    this.downloadingStates[file['access_id']] = true;
     this.fileListError = null;
     this.cdRef.detectChanges();
 
     const fileDisplayName = this.getDisplayFilename(file) || 'downloaded_item';
 
     // *** MODIFIED: Pass is_batch flag to the service method ***
-    this.apiService.downloadFileBlob(file.access_id, file.is_batch || false).subscribe({
+    this.apiService.downloadFileBlob(file['access_id'], file['is_batch'] || false).subscribe({
       next: (blob) => {
         this.zone.run(() => {
           const link = document.createElement('a');
@@ -186,12 +186,12 @@ export class UserFilesPageComponent implements OnInit, OnDestroy {
 
           let downloadName = fileDisplayName;
           // If it's a batch download (which will be a zip), ensure .zip extension
-          if (file.is_batch && !downloadName.toLowerCase().endsWith('.zip')) {
+          if (file['is_batch'] && !downloadName.toLowerCase().endsWith('.zip')) {
             // Exception: if it's a single-file batch and already has a proper extension, keep it.
-            const isSingleFileBatchWithExtension = file.files_in_batch &&
-              file.files_in_batch.length === 1 &&
-              file.files_in_batch[0].original_filename &&
-              file.files_in_batch[0].original_filename.includes('.');
+            const isSingleFileBatchWithExtension = file['files_in_batch'] &&
+              file['files_in_batch'].length === 1 &&
+              file['files_in_batch'][0]['original_filename'] &&
+              file['files_in_batch'][0]['original_filename'].includes('.');
             if (!isSingleFileBatchWithExtension) {
               downloadName += '.zip';
             }
@@ -203,13 +203,13 @@ export class UserFilesPageComponent implements OnInit, OnDestroy {
           document.body.removeChild(link);
           URL.revokeObjectURL(url);
 
-          delete this.downloadingStates[file.access_id!];
+          delete this.downloadingStates[file['access_id']!];
           this.cdRef.detectChanges();
         });
       },
       error: (err) => {
         this.zone.run(() => {
-          console.error(`UserFilesPageComponent: Error downloading ${fileDisplayName} (access_id: ${file.access_id}):`, err);
+          console.error(`UserFilesPageComponent: Error downloading ${fileDisplayName} (access_id: ${file['access_id']}):`, err);
           let detail = 'An unexpected error occurred. Check backend connection/logs.';
           if (err && err.error && typeof err.error.message === 'string') {
             detail = err.error.message;
@@ -221,7 +221,7 @@ export class UserFilesPageComponent implements OnInit, OnDestroy {
             detail = err;
           }
           this.fileListError = `Failed to download "${fileDisplayName}". ${detail}`;
-          delete this.downloadingStates[file.access_id!];
+          delete this.downloadingStates[file['access_id']!];
           this.cdRef.detectChanges();
         });
       }
@@ -236,7 +236,7 @@ export class UserFilesPageComponent implements OnInit, OnDestroy {
     }
 
     const displayName = this.getDisplayFilename(file);
-    const identifierForDelete = file.access_id;
+    const identifierForDelete = file['access_id'];
 
     if (!identifierForDelete) {
       const errorMsg = `Cannot delete "${displayName}": Unique identifier (access_id) is missing for this item.`;

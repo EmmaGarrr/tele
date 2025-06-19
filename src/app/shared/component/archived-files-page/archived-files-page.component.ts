@@ -11,10 +11,9 @@ import { ByteFormatPipe } from '../../pipes/byte-format.pipe'; // Assuming you h
 @Component({
   selector: 'app-archived-files-page',
   standalone: true,
-  imports: [CommonModule, RouterLink, ByteFormatPipe, DatePipe], // Add necessary imports
+  imports: [CommonModule, RouterLink, ByteFormatPipe], // Add necessary imports
   templateUrl: './archived-files-page.component.html',
   styleUrls: ['./archived-files-page.component.css', '../user-files-page/user-files-page.component.css'], // Reuse styles
-  providers: [DatePipe]
 })
 export class ArchivedFilesPageComponent implements OnInit, OnDestroy {
   private authService = inject(AuthService);
@@ -59,8 +58,8 @@ export class ArchivedFilesPageComponent implements OnInit, OnDestroy {
     this.apiService.listArchivedFiles(this.username).subscribe({
       next: (files) => this.zone.run(() => {
         this.archivedFiles = files.sort((a, b) => { // Sort by archived_timestamp if available
-          const dateA = a.archived_timestamp ? new Date(a.archived_timestamp).getTime() : 0;
-          const dateB = b.archived_timestamp ? new Date(b.archived_timestamp).getTime() : 0;
+          const dateA = a['archived_timestamp'] ? new Date(a['archived_timestamp']).getTime() : 0;
+          const dateB = b['archived_timestamp'] ? new Date(b['archived_timestamp']).getTime() : 0;
           return dateB - dateA; // Newest archived first
         });
         this.isLoading = false;
@@ -77,28 +76,28 @@ export class ArchivedFilesPageComponent implements OnInit, OnDestroy {
   }
 
   requestFileRestore(file: TelegramFileMetadata): void {
-    if (!file.access_id) {
+    if (!file['access_id']) {
       alert("Cannot restore: File information is incomplete.");
       return;
     }
-    if (this.restoringStates[file.access_id]) return; // Already restoring
+    if (this.restoringStates[file['access_id']]) return; // Already restoring
 
-    this.restoringStates[file.access_id] = true;
+    this.restoringStates[file['access_id']] = true;
     this.error = null; // Clear previous errors
     this.cdRef.detectChanges();
 
-    this.apiService.restoreFile(file.access_id).subscribe({
+    this.apiService.restoreFile(file['access_id']).subscribe({
       next: (response) => this.zone.run(() => {
-        console.log(`Restore successful for ${file.access_id}:`, response.message);
+        console.log(`Restore successful for ${file['access_id']}:`, response.message);
         // Remove from current list and reload or filter
-        this.archivedFiles = this.archivedFiles.filter(f => f.access_id !== file.access_id);
-        delete this.restoringStates[file.access_id!];
+        this.archivedFiles = this.archivedFiles.filter(f => f['access_id'] !== file['access_id']);
+        delete this.restoringStates[file['access_id']];
         // Optionally, show a success toast/message to the user
         alert(response.message || `File "${this.getDisplayFilename(file)}" restored successfully!`);
         this.cdRef.detectChanges();
       }),
       error: (err) => this.zone.run(() => {
-        console.error(`ArchivedFilesPage: Error restoring file ${file.access_id}:`, err);
+        console.error(`ArchivedFilesPage: Error restoring file ${file['access_id']}:`, err);
         let detail = 'An unexpected error occurred.';
         if (err && err.error && typeof err.error.message === 'string') {
           detail = err.error.message;
@@ -108,7 +107,7 @@ export class ArchivedFilesPageComponent implements OnInit, OnDestroy {
           detail = err.message;
         }
         this.error = `Failed to restore "${this.getDisplayFilename(file)}". ${detail}`;
-        delete this.restoringStates[file.access_id!];
+        delete this.restoringStates[file['access_id']];
         this.cdRef.detectChanges();
       })
     });
@@ -120,42 +119,42 @@ export class ArchivedFilesPageComponent implements OnInit, OnDestroy {
 
   getDisplayFilename(file: TelegramFileMetadata): string {
     // For batches, the batch_display_name is the priority.
-    if (file.is_batch) {
-      return file.batch_display_name || 'Unnamed Batch';
+    if (file['is_batch']) {
+      return file['batch_display_name'] || 'Unnamed Batch';
     }
 
     // For single files, the name is likely inside the files_in_batch array.
-    if (file.files_in_batch && file.files_in_batch.length > 0 && file.files_in_batch[0].original_filename) {
-      return file.files_in_batch[0].original_filename;
+    if (file['files_in_batch'] && file['files_in_batch'].length > 0 && file['files_in_batch'][0].original_filename) {
+      return file['files_in_batch'][0].original_filename;
     }
 
     // Fallback for older data structures or edge cases.
-    return file.original_filename || file.name || file.sent_filename || 'Unnamed File';
+    return file['original_filename'] || file['name'] || file['sent_filename'] || 'Unnamed File';
   }
 
   getItemSize(file: TelegramFileMetadata): number {
-    if (file.is_batch) {
-      return file.total_original_size ?? 0;
+    if (file['is_batch']) {
+      return file['total_original_size'] ?? 0;
     }
-    return file.original_size ?? file.size ?? 0;
+    return file['original_size'] ?? file['size'] ?? 0;
   }
 
   // Re-use or adapt from user-files-page.component.ts
   getFileIcon(file: TelegramFileMetadata): string {
     // For multi-file batches, always show a folder/archive icon.
-    if (file.is_batch && file.files_in_batch && file.files_in_batch.length > 1) {
+    if (file['is_batch'] && file['files_in_batch'] && file['files_in_batch'].length > 1) {
       return 'fas fa-folder-open text-warning';
     }
 
     // For single files OR batches-of-one, find the single filename to determine the icon.
     let filenameForIcon: string | undefined;
-    if (file.files_in_batch && file.files_in_batch.length > 0) {
-      filenameForIcon = file.files_in_batch[0].original_filename;
+    if (file['files_in_batch'] && file['files_in_batch'].length > 0) {
+      filenameForIcon = file['files_in_batch'][0].original_filename;
     }
 
     // Fallback to top-level names if files_in_batch is missing for some reason.
     if (!filenameForIcon) {
-      filenameForIcon = file.original_filename || file.name || file.sent_filename;
+      filenameForIcon = file['original_filename'] || file['name'] || file['sent_filename'];
     }
 
     // If still no name, return the question mark icon.

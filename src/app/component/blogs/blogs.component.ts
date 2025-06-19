@@ -4,12 +4,11 @@ import { CommonModule } from '@angular/common'; // Import CommonModule for *ngFo
 import { RouterModule } from '@angular/router'; // Import RouterModule for routerLink
 import { BlogService } from '../../shared/services/blog.service'; // Adjust path
 import { BlogPost } from '../../shared/models/blog-post.model'; // Adjust path
-import { ScrollAnimationDirective } from '@app/shared/directives/scroll-animation.directive';
 
 @Component({
   selector: 'app-blog-list',
   standalone: true, // Assuming standalone components based on modern Angular
-  imports: [CommonModule, RouterModule,ScrollAnimationDirective], // Add CommonModule and RouterModule
+  imports: [CommonModule, RouterModule], // Add CommonModule and RouterModule
   templateUrl: './blogs.component.html',
   styleUrls: ['./blogs.component.css']
 })

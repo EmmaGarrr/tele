@@ -45,7 +45,7 @@
                         <span class="file-size">{{ file.original_size | byteFormat }}</span>
                         <!-- MODIFIED LINE BELOW -->
                         <button *ngIf="isPreviewable(file)" 
-                                                        (click)="navigateToPreview(batchDetails?.access_id ?? null, file.original_filename)"
+                                                        (click)="navigateToPreview(batchDetails.access_id, file.original_filename)"
                             class="btn btn-outline-secondary btn-sm me-1">Preview</button>
                         <button class="individual-download-button" (click)="initiateIndividualDownload(file)"
                             [disabled]="isProcessingDownload"
