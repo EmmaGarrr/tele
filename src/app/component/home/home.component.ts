@@ -36,8 +36,6 @@ interface UploadProgressDetails {
     CommonModule,
     RouterLink,
     FaqAccordionComponent,
-    ByteFormatPipe,
-    DatePipe,
     OrbitalDisplayComponent,
     ScrollAnimationDirective,
     GamesComponent
