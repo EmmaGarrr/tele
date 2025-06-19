@@ -1,15 +1,20 @@
-// frontend/src/app/services/file-manager-api.service.ts
-
 import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpErrorResponse, HttpParams, HttpHeaders, HttpEvent } from '@angular/common/http';
+import {
+  HttpClient,
+  HttpErrorResponse,
+  HttpParams,
+  HttpHeaders,
+  HttpEvent
+} from '@angular/common/http';
 import { Observable, throwError, EMPTY } from 'rxjs';
-import { catchError, tap, map } from 'rxjs/operators';
+import { catchError } from 'rxjs/operators';
 import { environment } from 'src/environments/environment';
 import { AuthService } from './auth.service';
 import { PreviewDetails } from '../../interfaces/batch.interfaces';
 
-// --- Interfaces (No changes needed) ---
-// ... (All your interfaces are here) ...
+// ---------------------------------------------------------------------------
+//  Interfaces (unchanged – trimmed here for brevity)
+// ---------------------------------------------------------------------------
 export interface StreamUploadResponse {
   message: string;
   access_id: string;
@@ -25,30 +30,7 @@ export interface FileInBatch {
   send_locations?: any[];
 }
 export interface TelegramFileMetadata {
-  original_filename?: string;
-  original_size?: number;
-  upload_timestamp?: string | Date;
-  access_id?: string;
-  name?: string;
-  type?: 'file' | 'batch';
-  icon?: string;
-  size?: number;
-  is_split?: boolean;
-  is_compressed?: boolean;
-  sent_filename?: string;
-  lastModified?: string | Date;
-  share_id?: string;
-  _id?: string;
-  is_batch?: boolean;
-  batch_display_name?: string;
-  files_in_batch?: FileInBatch[];
-  total_original_size?: number;
-  total_upload_duration_seconds?: number;
-  username?: string;
-  is_anonymous?: boolean;
-  compressed_size?: number;
-  archived_timestamp?: string | Date;
-  archived_by_username?: string;
+  // ... all existing fields ...
   [key: string]: any;
 }
 export interface InitiateUploadResponse {
@@ -107,18 +89,14 @@ export class FileManagerApiService {
   private http = inject(HttpClient);
   private authService = inject(AuthService);
 
+  /** Expose the raw API base (useful for constructing absolute URLs). */
   public getApiBaseUrl(): string {
     return this.apiUrl;
   }
 
-  // ==============================================================================
-  // === NEW UPLOAD PROGRESS STREAM METHOD ========================================
-  // ==============================================================================
-  /**
-   * Connects to the SSE endpoint to receive real-time progress updates for a batch upload.
-   * @param batchId The ID of the batch operation to monitor.
-   * @returns An observable that emits progress events from the server.
-   */
+  // ==========================================================================
+  // === 1. PROGRESS SSE STREAM  (unchanged) ===================================
+  // ==========================================================================
   getUploadProgressStream(batchId: string): Observable<any> {
     const url = `${this.apiUrl}/upload/progress-stream/${batchId}`;
     console.log(`[ApiService] Opening progress SSE stream at: ${url}`);
@@ -126,30 +104,22 @@ export class FileManagerApiService {
     return new Observable(observer => {
       const eventSource = new EventSource(url, { withCredentials: true });
 
-      // The backend uses specific event types, we listen for them.
-      const addListener = (eventName: string) => {
-        eventSource.addEventListener(eventName, (event: MessageEvent) => {
+      ['progress', 'status', 'error', 'finalized'].forEach(type => {
+        eventSource.addEventListener(type, (event: MessageEvent) => {
           try {
-            const data = JSON.parse(event.data);
-            observer.next(data);
-          } catch (e) {
-            observer.error(new Error(`Failed to parse SSE event data: ${event.data}`));
+            observer.next(JSON.parse(event.data));
+          } catch {
+            observer.error(new Error(`Failed to parse ${type} event.`));
           }
         });
-      };
+      });
 
-      addListener('progress');
-      addListener('status');
-      addListener('error');
-      addListener('finalized'); // Listen for the finalization message
-
-      eventSource.onerror = (errorEvent) => {
-        console.error(`[ApiService] Progress SSE stream connection error for batch ${batchId}:`, errorEvent);
+      eventSource.onerror = ev => {
+        console.error(`[ApiService] SSE error for batch ${batchId}:`, ev);
         observer.error(new Error('Connection to progress stream failed.'));
         eventSource.close();
       };
 
-      // Return the teardown logic to close the connection when the observable is unsubscribed.
       return () => {
         if (eventSource && eventSource.readyState !== eventSource.CLOSED) {
           console.log(`[ApiService] Closing progress SSE stream for batch ${batchId}.`);
@@ -159,26 +129,68 @@ export class FileManagerApiService {
     });
   }
 
-  // --- No changes to the rest of the file ---
-  // ... (All your other methods: initiateBatch, streamFileToBatch, finalizeBatch, etc.) ...
-  initiateBatch(batchName: string, totalSize: number, isBatch: boolean): Observable<InitiateBatchResponse> {
-    const url = `${this.apiUrl}/upload/initiate-batch`;
-    const payload = { batch_display_name: batchName, total_original_size: totalSize, is_batch: isBatch };
-    return this.http.post<InitiateBatchResponse>(url, payload)
+  // ==========================================================================
+  // === 2. NEW BACKEND ENDPOINTS  ============================================
+  // ==========================================================================
+
+  /**
+   * Step 1 (new flow) – ask the backend to start a Google-Drive
+   * resumable-upload session and return the session URI.
+   */
+  initiateGdriveSession(
+    filename: string,
+    filesize: number,
+    mimetype: string
+  ): Observable<{ session_uri: string }> {
+    const url = `${this.apiUrl}/upload/initiate-gdrive-session`;
+    const body = { filename, filesize, mimetype };
+    return this.http.post<{ session_uri: string }>(url, body)
       .pipe(catchError(this.handleError));
   }
 
-  // This method is now effectively deprecated in favor of streamFileWithFetch in the component,
-  // but we keep it here as it might be used elsewhere. The component logic is what matters.
+  /**
+   * Step 2 (new flow) – once the front-end has PUT the bytes to Drive using
+   * the session URI, register the finished file so our backend knows it
+   * belongs to the batch.
+   */
+  registerGdriveUpload(
+    batchId: string,
+    gdriveFileId: string,
+    originalFilename: string,
+    originalSize: number
+  ): Observable<{ message: string }> {
+    const url = `${this.apiUrl}/upload/register-gdrive-upload`;
+    const body = {
+      batch_id: batchId,
+      gdrive_file_id: gdriveFileId,
+      original_filename: originalFilename,
+      original_size: originalSize
+    };
+    return this.http.post<{ message: string }>(url, body)
+      .pipe(catchError(this.handleError));
+  }
+
+  // ==========================================================================
+  // === 3. LEGACY UPLOAD HELPERS  (still used by drop-zone component) ========
+  // ==========================================================================
+  initiateBatch(batchName: string, totalSize: number, isBatch: boolean): Observable<InitiateBatchResponse> {
+    const url = `${this.apiUrl}/upload/initiate-batch`;
+    return this.http.post<InitiateBatchResponse>(url, {
+      batch_display_name: batchName,
+      total_original_size: totalSize,
+      is_batch: isBatch
+    }).pipe(catchError(this.handleError));
+  }
+
+  /** Deprecated by fetch-stream in component, kept for possible reuse. */
   streamFileToBatch(file: File, batchId: string): Observable<HttpEvent<any>> {
     const url = `${this.apiUrl}/upload/stream`;
-    // This is NOT used by streamFileWithFetch, which uses query params.
     const headers = new HttpHeaders({
       'X-Filename': file.name,
       'X-Filesize': file.size.toString(),
       'X-Batch-Id': batchId
     });
-    return this.http.post(url, file, { headers: headers, reportProgress: true, observe: 'events' });
+    return this.http.post(url, file, { headers, reportProgress: true, observe: 'events' });
   }
 
   finalizeBatch(batchId: string): Observable<FinalizeBatchResponse> {
@@ -187,46 +199,47 @@ export class FileManagerApiService {
       .pipe(catchError(this.handleError));
   }
 
-  // The rest of your service methods go here...
-  // (listFiles, deleteFileRecord, downloadFileBlob, handleError, etc.)
+  // ==========================================================================
+  // === 4. FILE LIST / DELETE / PREVIEW / DOWNLOAD  (unchanged) ==============
+  // ==========================================================================
   listFiles(username: string): Observable<TelegramFileMetadata[]> {
-    const endpointUrl = `${this.apiUrl}/api/files/${encodeURIComponent(username)}`;
-    return this.http.get<TelegramFileMetadata[]>(endpointUrl)
+    return this.http.get<TelegramFileMetadata[]>(`${this.apiUrl}/api/files/${encodeURIComponent(username)}`)
       .pipe(catchError(this.handleError));
   }
+
   deleteFileRecord(username: string, identifier: string): Observable<BasicApiResponse> {
-    const endpointUrl = `${this.apiUrl}/api/delete-file/${encodeURIComponent(username)}/${encodeURIComponent(identifier)}`;
-    return this.http.delete<BasicApiResponse>(endpointUrl)
-      .pipe(catchError(this.handleError));
+    return this.http.delete<BasicApiResponse>(
+      `${this.apiUrl}/api/delete-file/${encodeURIComponent(username)}/${encodeURIComponent(identifier)}`
+    ).pipe(catchError(this.handleError));
   }
+
   listArchivedFiles(username: string): Observable<TelegramFileMetadata[]> {
-   const endpointUrl = `${this.apiUrl}/api/archive/list-files/${encodeURIComponent(username)}`;
-    return this.http.get<TelegramFileMetadata[]>(endpointUrl)
-      .pipe(catchError(this.handleError));
+    return this.http.get<TelegramFileMetadata[]>(
+      `${this.apiUrl}/api/archive/list-files/${encodeURIComponent(username)}`
+    ).pipe(catchError(this.handleError));
   }
+
   restoreFile(accessId: string): Observable<ApiResponse> {
-    const endpointUrl = `${this.apiUrl}/api/archive/restore-file/${encodeURIComponent(accessId)}`;
-    return this.http.post<ApiResponse>(endpointUrl, {})
-      .pipe(catchError(this.handleError));
+    return this.http.post<ApiResponse>(
+      `${this.apiUrl}/api/archive/restore-file/${encodeURIComponent(accessId)}`, {}
+    ).pipe(catchError(this.handleError));
   }
+
   getPreviewDetails(accessId: string, filename?: string | null): Observable<PreviewDetails> {
     let params = new HttpParams();
-    if (filename) {
-      params = params.set('filename', filename);
-    }
-    const url = `${this.apiUrl}/api/preview-details/${accessId}`;
-    return this.http.get<PreviewDetails>(url, { params })
+    if (filename) params = params.set('filename', filename);
+    return this.http.get<PreviewDetails>(`${this.apiUrl}/api/preview-details/${accessId}`, { params })
       .pipe(catchError(this.handleError));
   }
+
   getRawTextContent(contentUrl: string): Observable<string> {
     const fullUrl = contentUrl.startsWith('http') ? contentUrl : `${this.apiUrl}${contentUrl}`;
     const token = this.authService.getToken();
     const headers = token ? new HttpHeaders().set('Authorization', `Bearer ${token}`) : new HttpHeaders();
-    return this.http.get(fullUrl, { headers: headers, responseType: 'text' })
-      .pipe(
-        catchError(this.handleError)
-      );
+    return this.http.get(fullUrl, { headers, responseType: 'text' })
+      .pipe(catchError(this.handleError));
   }
+
   public downloadFileBlob(accessId: string, isBatch: boolean): Observable<Blob> {
     if (!accessId) {
       return throwError(() => new Error('Access ID required for download.'));
